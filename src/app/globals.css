@@ -1,26 +1,242 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@theme {
+  /* A muted, natural range: bone paper, charcoal ink, weathered stone. */
+  --color-paper: #f7f5f0;
+  --color-bone: #eeeae2;
+  --color-sand: #ddd6c8;
+  --color-stone: #a29b8f;
+  --color-ash: #6a655d;
+  --color-charcoal: #1e1d1b;
+  --color-ink: #0b0b0a;
+  --color-moss: #3c463a;
+
+  --font-display: var(--font-cormorant), ui-serif, Georgia, "Times New Roman",
+    serif;
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system,
+    sans-serif;
+
+  --ease-cinematic: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  body {
+    background-color: var(--color-bone);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    /* Pinned sections translate wide; never let that create a sideways scroll. */
+    overflow-x: clip;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::selection {
+    background-color: var(--color-ink);
+    color: var(--color-paper);
+  }
+
+  /* A hairline scrollbar — visible enough to orient, quiet enough to ignore. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-stone) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  *::-webkit-scrollbar-thumb {
+    background-color: var(--color-stone);
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  /* next/image with `fill` needs its wrapper to establish a stacking context;
+     these images are all art-directed crops. */
+  img {
+    -webkit-user-drag: none;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@utility label {
+  font-family: var(--font-sans);
+  font-size: clamp(0.5625rem, 0.72vw, 0.6875rem);
+  font-weight: 400;
+  letter-spacing: 0.42em;
+  text-transform: uppercase;
+  line-height: 1;
+}
+
+@utility display {
+  font-family: var(--font-display);
+  font-weight: 300;
+  line-height: 0.88;
+  letter-spacing: -0.02em;
+}
+
+/* Masked line: the child slides up out of the overflow, no clip repaint. */
+@utility line-mask {
+  display: block;
+  overflow: hidden;
+}
+
+/*
+ * Layer promotion, scoped to the section that is actually near the viewport.
+ * `data-live` is written by useGsap one screen ahead of each section and
+ * cleared one screen behind it, so two or three sections hold compositor
+ * layers at a time instead of all twelve at once.
+ */
+[data-live="1"] .lift {
+  will-change: transform;
+}
+
+[data-live="1"] .lift-fade {
+  will-change: opacity;
+}
+
+[data-live="1"] .lift-clip {
+  will-change: clip-path, transform;
+}
+
+[data-live="1"] .lift-filter {
+  will-change: transform, filter;
+}
+
+[data-live="1"] .lift-box {
+  will-change: width, height, transform;
+}
+
+/* Two hints on one element. As separate rules they collide — equal specificity,
+   last one wins — and the element quietly loses the hint it also needed. */
+[data-live="1"] .lift.lift-fade {
+  will-change: transform, opacity;
+}
+
+/*
+ * Film grain. One fixed layer over the whole document, driven by an inline
+ * SVG turbulence so there is no image request. It shifts on a step timing
+ * function so the grain "resamples" like real film rather than sliding.
+ */
+.grain {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  pointer-events: none;
+  opacity: 0.32;
+  mix-blend-mode: soft-light;
+  /* The noise plate is oversized so it has room to shift, and clipped back to
+     the viewport here so the blend covers one screen rather than several. */
+  overflow: hidden;
+}
+
+.grain::after {
+  content: "";
+  position: absolute;
+  /* Just enough overhang for the shift below — the largest step moves 6% of
+     this element's own size, i.e. 8.4% of the viewport, against 20% of slack.
+     The tile is random and repeats, so trimming the plate from 220% to 140%
+     halves the rastered area and changes nothing you can see. */
+  top: -20%;
+  left: -20%;
+  width: 140%;
+  height: 140%;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='260' height='260' filter='url(%23n)'/%3E%3C/svg%3E");
+  animation: grain-shift 900ms steps(6, end) infinite;
+  will-change: transform;
+}
+
+@keyframes grain-shift {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  20% {
+    transform: translate3d(-3%, -4%, 0);
+  }
+  40% {
+    transform: translate3d(-6%, 3%, 0);
+  }
+  60% {
+    transform: translate3d(4%, -3%, 0);
+  }
+  80% {
+    transform: translate3d(-2%, 5%, 0);
+  }
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+/* A vignette sold as light falloff, not as a border. */
+.vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse at center,
+    transparent 42%,
+    rgb(0 0 0 / 0.42) 100%
+  );
+}
+
+/*
+ * The hero copy stays dark until its reveal owns it (see Hero.tsx). Without
+ * this the server paint shows the finished frame, hydration snaps it out of
+ * sight to start the timeline, and it plays in — one reveal, watched twice.
+ *
+ * Opacity, and deliberately not the offset the timeline starts from. GSAP reads
+ * an element's starting transform out of the *computed* matrix, where the
+ * browser has already resolved percentages to pixels, and it only recognises a
+ * percentage for the -50% centring case. A `translateY(118%)` here would be
+ * filed as `y: 21px`, kept, and added underneath the tween's own percentage —
+ * parking every line one line-height below its mask, for good.
+ */
+.hero-content {
+  opacity: 0;
+}
+
+/* Safe to state as a transform: a pure scale decomposes out of the matrix
+   exactly, so GSAP picks this up as the 1.15 its `from` already expects. */
+.hero-zoom {
+  transform: scale(1.15);
+}
+
+/* No script, no reveal — so nothing should be left waiting on one. */
+@media (scripting: none) {
+  .hero-content {
+    opacity: 1;
+  }
+
+  .hero-zoom {
+    transform: none;
+  }
+}
+
+/*
+ * Phones: a full-screen soft-light blend that resamples six times a second is
+ * the single most expensive thing on the page, and at that pixel density the
+ * grain is barely legible anyway. Keep the texture, drop the animation.
+ */
+@media (max-width: 767.98px) {
+  .grain {
+    opacity: 0.24;
+  }
+
+  .grain::after {
+    animation: none;
+    will-change: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .grain::after {
+    animation: none;
+    will-change: auto;
+  }
+
+  html {
+    scroll-behavior: auto;
+  }
 }
